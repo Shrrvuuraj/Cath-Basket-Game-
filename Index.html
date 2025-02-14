@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catch the Objects Game</title>
+  <style>
+    /* Reset and Basic Styles */
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #F0F0F0;
+      font-family: Arial, sans-serif;
+    }
+
+    /* Game Container */
+    .game-container {
+      position: relative;
+      width: 800px;
+      height: 600px;
+      background-color: #FFFFFF;
+      border: 2px solid #CCCCCC;
+      overflow: hidden;
+    }
+
+    /* Basket */
+    .basket {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100px;
+      height: 20px;
+      background-color: #4CAF50;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    /* Falling Objects */
+    .object {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: #FF5252; /* Default red */
+    }
+
+    .object.positive {
+      background-color: #4CAF50; /* Green for positive objects */
+    }
+
+    /* Score Display */
+    .score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 24px;
+      color: #333333;
+    }
+
+    /* Game Over Message */
+    .game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 48px;
+      color: #333333;
+      display: none; /* Hidden by default */
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <div class="score">Score: 0</div>
+    <div class="basket"></div>
+    <div class="game-over">Game Over</div>
+  </div>
+
+  <script>
+    // Game Variables
+    const gameContainer = document.querySelector('.game-container');
+    const basket = document.querySelector('.basket');
+    const scoreDisplay = document.querySelector('.score');
+    const gameOverDisplay = document.querySelector('.game-over');
+    let score = 0;
+    let gameActive = true;
+
+    // Basket Movement
+    document.addEventListener('mousemove', (e) => {
+      if (gameActive) {
+        const containerRect = gameContainer.getBoundingClientRect();
+        const basketWidth = basket.offsetWidth;
+        let newPosition = e.clientX - containerRect.left - basketWidth / 2;
+
+        // Keep basket within container bounds
+        if (newPosition < 0) newPosition = 0;
+        if (newPosition > containerRect.width - basketWidth) newPosition = containerRect.width - basketWidth;
+
+        basket.style.left = `${newPosition}px`;
+      }
+    });
+
+    // Spawn Falling Objects
+    function spawnObject() {
+      if (!gameActive) return;
+
+      const object = document.createElement('div');
+      object.classList.add('object');
+
+      // Randomize object type (positive or negative)
+      if (Math.random() > 0.5) {
+        object.classList.add('positive');
+      }
+
+      // Randomize horizontal position
+      const xPos = Math.random() * (gameContainer.offsetWidth - 20);
+      object.style.left = `${xPos}px`;
+
+      // Add object to container
+      gameContainer.appendChild(object);
+
+      // Animate falling
+      let fallInterval = setInterval(() => {
+        if (!gameActive) {
+          clearInterval(fallInterval);
+          return;
+        }
+
+        const yPos = object.offsetTop + 2; // Fall speed
+        object.style.top = `${yPos}px`;
+
+        // Check for collision with basket
+        if (yPos + 20 >= basket.offsetTop && yPos <= basket.offsetTop + 20 &&
+            xPos + 20 >= basket.offsetLeft && xPos <= basket.offsetLeft + 100) {
+          if (object.classList.contains('positive')) {
+            score++; // Increase score by 1 for green balls
+            scoreDisplay.textContent = `Score: ${score}`;
+          } else {
+            endGame(); // End game for red balls
+          }
+          object.remove(); // Remove the object after collision
+          clearInterval(fallInterval);
+        }
+
+        // Remove object if it goes out of bounds
+        if (yPos > gameContainer.offsetHeight) {
+          object.remove();
+          clearInterval(fallInterval);
+        }
+      }, 20);
+    }
+
+    // End Game
+    function endGame() {
+      gameActive = false;
+      gameOverDisplay.style.display = 'block';
+    }
+
+    // Start Game Loop
+    setInterval(spawnObject, 1000); // Spawn objects every second
+  </script>
+</body>
+</html>
