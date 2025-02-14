@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Catch the Objects Game</title>
   <style>
     /* Reset and Basic Styles */
@@ -14,13 +14,16 @@
       height: 100vh;
       background-color: #F0F0F0;
       font-family: Arial, sans-serif;
+      touch-action: none;
     }
 
     /* Game Container */
     .game-container {
       position: relative;
-      width: 800px;
-      height: 600px;
+      width: 90vw;
+      height: 60vh;
+      max-width: 800px;
+      max-height: 600px;
       background-color: #FFFFFF;
       border: 2px solid #CCCCCC;
       overflow: hidden;
@@ -29,36 +32,40 @@
     /* Basket */
     .basket {
       position: absolute;
-      bottom: 20px;
+      bottom: 5%;
       left: 50%;
       transform: translateX(-50%);
-      width: 100px;
-      height: 20px;
+      width: 15%;
+      height: 4%;
+      min-width: 60px;
+      min-height: 15px;
       background-color: #4CAF50;
       border-radius: 10px;
-      cursor: pointer;
     }
 
     /* Falling Objects */
     .object {
       position: absolute;
-      width: 20px;
-      height: 20px;
+      width: 3%;
+      height: 3%;
+      min-width: 15px;
+      min-height: 15px;
       border-radius: 50%;
-      background-color: #FF5252; /* Default red */
+      background-color: #FF5252;
     }
 
     .object.positive {
-      background-color: #4CAF50; /* Green for positive objects */
+      background-color: #4CAF50;
     }
 
     /* Score Display */
     .score {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      font-size: 24px;
+      top: 2%;
+      left: 3%;
+      font-size: 4vmin;
       color: #333333;
+      z-index: 1;
     }
 
     /* Game Over Message */
@@ -67,9 +74,10 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 48px;
+      font-size: 8vmin;
       color: #333333;
-      display: none; /* Hidden by default */
+      display: none;
+      text-align: center;
     }
   </style>
 </head>
@@ -89,20 +97,31 @@
     let score = 0;
     let gameActive = true;
 
-    // Basket Movement
-    document.addEventListener('mousemove', (e) => {
-      if (gameActive) {
-        const containerRect = gameContainer.getBoundingClientRect();
-        const basketWidth = basket.offsetWidth;
-        let newPosition = e.clientX - containerRect.left - basketWidth / 2;
+    // Input Handling
+    function handleMove(e) {
+      if (!gameActive) return;
 
-        // Keep basket within container bounds
-        if (newPosition < 0) newPosition = 0;
-        if (newPosition > containerRect.width - basketWidth) newPosition = containerRect.width - basketWidth;
+      const containerRect = gameContainer.getBoundingClientRect();
+      const basketWidth = basket.offsetWidth;
+      let clientX;
 
-        basket.style.left = `${newPosition}px`;
+      if (e.type === 'touchmove') {
+        clientX = e.touches[0].clientX;
+      } else {
+        clientX = e.clientX;
       }
-    });
+
+      let newPosition = clientX - containerRect.left - basketWidth / 2;
+      newPosition = Math.max(0, Math.min(newPosition, containerRect.width - basketWidth));
+      basket.style.left = `${newPosition}px`;
+    }
+
+    // Event Listeners
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      handleMove(e);
+    }, { passive: false });
 
     // Spawn Falling Objects
     function spawnObject() {
@@ -110,48 +129,55 @@
 
       const object = document.createElement('div');
       object.classList.add('object');
+      if (Math.random() > 0.5) object.classList.add('positive');
 
-      // Randomize object type (positive or negative)
-      if (Math.random() > 0.5) {
-        object.classList.add('positive');
-      }
+      const containerWidth = gameContainer.offsetWidth;
+      const maxX = containerWidth - object.offsetWidth;
+      object.style.left = `${Math.random() * maxX}px`;
 
-      // Randomize horizontal position
-      const xPos = Math.random() * (gameContainer.offsetWidth - 20);
-      object.style.left = `${xPos}px`;
-
-      // Add object to container
       gameContainer.appendChild(object);
 
-      // Animate falling
-      let fallInterval = setInterval(() => {
+      let lastTime = Date.now();
+      function animate() {
         if (!gameActive) {
-          clearInterval(fallInterval);
+          object.remove();
           return;
         }
 
-        const yPos = object.offsetTop + 2; // Fall speed
+        const now = Date.now();
+        const deltaTime = now - lastTime;
+        lastTime = now;
+
+        const yPos = object.offsetTop + (deltaTime * 0.2);
         object.style.top = `${yPos}px`;
 
-        // Check for collision with basket
-        if (yPos + 20 >= basket.offsetTop && yPos <= basket.offsetTop + 20 &&
-            xPos + 20 >= basket.offsetLeft && xPos <= basket.offsetLeft + 100) {
+        // Get current positions
+        const objectRect = object.getBoundingClientRect();
+        const basketRect = basket.getBoundingClientRect();
+
+        // Collision detection
+        if (objectRect.bottom >= basketRect.top &&
+            objectRect.top <= basketRect.bottom &&
+            objectRect.right >= basketRect.left &&
+            objectRect.left <= basketRect.right) {
           if (object.classList.contains('positive')) {
-            score++; // Increase score by 1 for green balls
+            score++;
             scoreDisplay.textContent = `Score: ${score}`;
           } else {
-            endGame(); // End game for red balls
+            endGame();
           }
-          object.remove(); // Remove the object after collision
-          clearInterval(fallInterval);
+          object.remove();
+          return;
         }
 
-        // Remove object if it goes out of bounds
         if (yPos > gameContainer.offsetHeight) {
           object.remove();
-          clearInterval(fallInterval);
+          return;
         }
-      }, 20);
+
+        requestAnimationFrame(animate);
+      }
+      requestAnimationFrame(animate);
     }
 
     // End Game
@@ -160,8 +186,20 @@
       gameOverDisplay.style.display = 'block';
     }
 
-    // Start Game Loop
-    setInterval(spawnObject, 1000); // Spawn objects every second
+    // Game Loop
+    function gameLoop() {
+      if (gameActive) {
+        spawnObject();
+        setTimeout(gameLoop, 1000);
+      }
+    }
+    gameLoop();
+
+    // Window Resize Handler
+    window.addEventListener('resize', () => {
+      basket.style.left = '50%';
+      basket.style.transform = 'translateX(-50%)';
+    });
   </script>
 </body>
 </html>
